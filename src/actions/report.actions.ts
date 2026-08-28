@@ -28,7 +28,10 @@ async function assertAdmin() {
 export async function getReportingAnalyticsAction(params?: {
   scheme?: string;
   status?: string;
-  period?: string;
+  year?: string;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
   try {
     await assertAdmin();
@@ -69,7 +72,7 @@ export async function getReportingAnalyticsAction(params?: {
         db.query.productCategories.findMany(),
       ]);
 
-    // Apply Filter on in-memory dataset
+    // Apply Filter on applications
     let filteredApps = allApps;
     if (params?.scheme && params.scheme !== "ALL") {
       filteredApps = filteredApps.filter((a) => a.schemeType === params.scheme);
@@ -77,10 +80,69 @@ export async function getReportingAnalyticsAction(params?: {
     if (params?.status && params.status !== "ALL") {
       filteredApps = filteredApps.filter((a) => a.status === params.status);
     }
+    if (params?.year && params.year !== "ALL") {
+      filteredApps = filteredApps.filter((a) => {
+        if (!a.createdAt) return false;
+        const d = new Date(a.createdAt);
+        return d.getFullYear().toString() === params.year;
+      });
+    }
+    if (params?.month && params.month !== "ALL") {
+      filteredApps = filteredApps.filter((a) => {
+        if (!a.createdAt) return false;
+        const d = new Date(a.createdAt);
+        return (d.getMonth() + 1).toString() === params.month;
+      });
+    }
+    if (params?.startDate) {
+      const start = new Date(params.startDate + "T00:00:00");
+      filteredApps = filteredApps.filter((a) => {
+        if (!a.createdAt) return false;
+        return new Date(a.createdAt) >= start;
+      });
+    }
+    if (params?.endDate) {
+      const end = new Date(params.endDate + "T23:59:59");
+      filteredApps = filteredApps.filter((a) => {
+        if (!a.createdAt) return false;
+        return new Date(a.createdAt) <= end;
+      });
+    }
+
+    // Apply Filter on certificates
+    let filteredCerts = allCerts;
+    if (params?.year && params.year !== "ALL") {
+      filteredCerts = filteredCerts.filter((c) => {
+        if (!c.issueDate) return false;
+        const d = new Date(c.issueDate);
+        return d.getFullYear().toString() === params.year;
+      });
+    }
+    if (params?.month && params.month !== "ALL") {
+      filteredCerts = filteredCerts.filter((c) => {
+        if (!c.issueDate) return false;
+        const d = new Date(c.issueDate);
+        return (d.getMonth() + 1).toString() === params.month;
+      });
+    }
+    if (params?.startDate) {
+      const start = new Date(params.startDate + "T00:00:00");
+      filteredCerts = filteredCerts.filter((c) => {
+        if (!c.issueDate) return false;
+        return new Date(c.issueDate) >= start;
+      });
+    }
+    if (params?.endDate) {
+      const end = new Date(params.endDate + "T23:59:59");
+      filteredCerts = filteredCerts.filter((c) => {
+        if (!c.issueDate) return false;
+        return new Date(c.issueDate) <= end;
+      });
+    }
 
     // 4. Compute High-Level Metrics
     const totalApps = filteredApps.length;
-    const totalCertificates = allCerts.length;
+    const totalCertificates = filteredCerts.length;
     const totalApproved = filteredApps.filter(
       (a) => a.status === "CERTIFICATE_ISSUED" || a.status === "APPROVED"
     ).length;
@@ -118,32 +180,60 @@ export async function getReportingAnalyticsAction(params?: {
       { name: "Perlu Perbaikan", value: statusCounts.NEED_CORRECTION || 0, color: "#ef4444" },
     ].filter((item) => item.value > 0);
 
-    // 6. Monthly Trend Analytics (Last 6 Months)
+    // 6. Monthly Trend Analytics (Last 6 Months or selected year)
     const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
     const now = new Date();
+    const targetYear = params?.year && params.year !== "ALL" ? parseInt(params.year, 10) : now.getFullYear();
     const monthlyTrends: { month: string; pengajuan: number; sertifikat: number }[] = [];
 
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const mIdx = d.getMonth();
-      const yr = d.getFullYear();
-      const mLabel = `${monthNames[mIdx]} ${yr}`;
+    if (params?.year && params.year !== "ALL") {
+      // 12 months for selected year
+      for (let m = 0; m < 12; m++) {
+        const mLabel = `${monthNames[m]}`;
+        const appCount = allApps.filter((a) => {
+          if (!a.createdAt) return false;
+          const cDate = new Date(a.createdAt);
+          return cDate.getMonth() === m && cDate.getFullYear() === targetYear;
+        }).length;
 
-      const appCount = filteredApps.filter((a) => {
-        const cDate = new Date(a.createdAt);
-        return cDate.getMonth() === mIdx && cDate.getFullYear() === yr;
-      }).length;
+        const certCount = allCerts.filter((c) => {
+          if (!c.issueDate) return false;
+          const iDate = new Date(c.issueDate);
+          return iDate.getMonth() === m && iDate.getFullYear() === targetYear;
+        }).length;
 
-      const certCount = allCerts.filter((c) => {
-        const iDate = new Date(c.issueDate);
-        return iDate.getMonth() === mIdx && iDate.getFullYear() === yr;
-      }).length;
+        monthlyTrends.push({
+          month: mLabel,
+          pengajuan: appCount,
+          sertifikat: certCount,
+        });
+      }
+    } else {
+      // Rolling 6 months
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const mIdx = d.getMonth();
+        const yr = d.getFullYear();
+        const mLabel = `${monthNames[mIdx]} ${yr}`;
 
-      monthlyTrends.push({
-        month: mLabel,
-        pengajuan: appCount,
-        sertifikat: certCount,
-      });
+        const appCount = filteredApps.filter((a) => {
+          if (!a.createdAt) return false;
+          const cDate = new Date(a.createdAt);
+          return cDate.getMonth() === mIdx && cDate.getFullYear() === yr;
+        }).length;
+
+        const certCount = filteredCerts.filter((c) => {
+          if (!c.issueDate) return false;
+          const iDate = new Date(c.issueDate);
+          return iDate.getMonth() === mIdx && iDate.getFullYear() === yr;
+        }).length;
+
+        monthlyTrends.push({
+          month: mLabel,
+          pengajuan: appCount,
+          sertifikat: certCount,
+        });
+      }
     }
 
     // 7. Officer Performance Rankings
@@ -204,8 +294,8 @@ export async function getReportingAnalyticsAction(params?: {
         businessScaleStats,
         auditorPerformance,
         mentorPerformance,
-        recentApplications: filteredApps.slice(0, 20),
-        recentCertificates: allCerts.slice(0, 20),
+        recentApplications: filteredApps.slice(0, 50),
+        recentCertificates: filteredCerts.slice(0, 50),
       },
     };
   } catch (error: any) {

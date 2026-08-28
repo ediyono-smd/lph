@@ -1,25 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect } from "react";
 import { getReportingAnalyticsAction } from "@/actions/report.actions";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   FileText,
   TrendingUp,
   Award,
-  CheckCircle2,
   Building2,
   Users,
   Printer,
   Download,
   Filter,
   BarChart3,
-  PieChart as PieChartIcon,
   RotateCcw,
   Calendar,
-  Layers,
 } from "lucide-react";
 import {
   BarChart,
@@ -35,7 +32,6 @@ import {
   Cell,
 } from "recharts";
 import { formatDate } from "@/lib/utils";
-import { HalalLogo } from "@/components/brand/halal-logo";
 
 const SCHEME_OPTIONS = [
   { value: "ALL", label: "Semua Skema" },
@@ -53,16 +49,50 @@ const STATUS_OPTIONS = [
   { value: "NEED_CORRECTION", label: "Perlu Perbaikan" },
 ];
 
+const YEAR_OPTIONS = [
+  { value: "ALL", label: "Semua Tahun" },
+  { value: "2026", label: "Tahun 2026" },
+  { value: "2025", label: "Tahun 2025" },
+  { value: "2024", label: "Tahun 2024" },
+];
+
+const MONTH_OPTIONS = [
+  { value: "ALL", label: "Semua Bulan" },
+  { value: "1", label: "Januari" },
+  { value: "2", label: "Februari" },
+  { value: "3", label: "Maret" },
+  { value: "4", label: "April" },
+  { value: "5", label: "Mei" },
+  { value: "6", label: "Juni" },
+  { value: "7", label: "Juli" },
+  { value: "8", label: "Agustus" },
+  { value: "9", label: "September" },
+  { value: "10", label: "Oktober" },
+  { value: "11", label: "November" },
+  { value: "12", label: "Desember" },
+];
+
 export default function AdminReportingPage() {
   const [data, setData] = useState<any>(null);
+  const [yearFilter, setYearFilter] = useState("ALL");
+  const [monthFilter, setMonthFilter] = useState("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [schemeFilter, setSchemeFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [activeTab, setActiveTab] = useState<"APPLICATIONS" | "CERTIFICATES" | "OFFICERS" | "BUSINESS">("APPLICATIONS");
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchReportData = async (scheme = "ALL", status = "ALL") => {
+  const fetchReportData = async () => {
     setIsLoading(true);
-    const res = await getReportingAnalyticsAction({ scheme, status });
+    const res = await getReportingAnalyticsAction({
+      year: yearFilter,
+      month: monthFilter,
+      startDate: startDate || undefined,
+      endDate: endDate || undefined,
+      scheme: schemeFilter,
+      status: statusFilter,
+    });
     if (res.success && res.data) {
       setData(res.data);
     }
@@ -70,10 +100,14 @@ export default function AdminReportingPage() {
   };
 
   useEffect(() => {
-    fetchReportData(schemeFilter, statusFilter);
-  }, [schemeFilter, statusFilter]);
+    fetchReportData();
+  }, [yearFilter, monthFilter, startDate, endDate, schemeFilter, statusFilter]);
 
   const handleResetFilter = () => {
+    setYearFilter("ALL");
+    setMonthFilter("ALL");
+    setStartDate("");
+    setEndDate("");
     setSchemeFilter("ALL");
     setStatusFilter("ALL");
   };
@@ -112,7 +146,13 @@ export default function AdminReportingPage() {
     document.body.removeChild(link);
   };
 
-  const isFilterActive = schemeFilter !== "ALL" || statusFilter !== "ALL";
+  const isFilterActive =
+    yearFilter !== "ALL" ||
+    monthFilter !== "ALL" ||
+    startDate !== "" ||
+    endDate !== "" ||
+    schemeFilter !== "ALL" ||
+    statusFilter !== "ALL";
 
   return (
     <div className="space-y-4">
@@ -162,54 +202,131 @@ export default function AdminReportingPage() {
         </div>
       </div>
 
-      {/* Filter Control Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white p-2.5 rounded-2xl border border-[#ebd7ba]/90 shadow-sm print:hidden">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-slate-600 font-semibold pl-1">
+      {/* Filter Control Bar (Tahun, Bulan, Rentang Tanggal, Skema, Status) */}
+      <div className="bg-white p-3 rounded-2xl border border-[#ebd7ba]/90 shadow-sm print:hidden space-y-2.5">
+        <div className="flex items-center justify-between border-b border-[#ebd7ba]/50 pb-2">
+          <div className="flex items-center gap-1.5 text-xs text-slate-800 font-extrabold">
             <Filter className="h-3.5 w-3.5 text-[#b87d28]" />
-            <span>Filter Laporan:</span>
+            <span>Filter Periode & Kategori Laporan:</span>
           </div>
 
-          <select
-            value={schemeFilter}
-            onChange={(e) => setSchemeFilter(e.target.value)}
-            className="h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
-          >
-            {SCHEME_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          {isFilterActive && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleResetFilter}
-              className="h-8 px-2 rounded-xl text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-red-50"
-            >
-              <RotateCcw className="h-3 w-3 mr-1" />
-              Reset
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isFilterActive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetFilter}
+                className="h-7 px-2 rounded-xl text-xs font-bold text-slate-600 hover:text-red-600 hover:bg-red-50"
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
+                Reset Filter
+              </Button>
+            )}
+            <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+              Pembaruan: <strong>{new Date().toLocaleTimeString("id-ID")}</strong>
+            </span>
+          </div>
         </div>
 
-        <span className="text-[11px] text-slate-500 font-medium pr-1">
-          Data diperbarui: <strong>{new Date().toLocaleTimeString("id-ID")}</strong>
-        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {/* Filter Tahun */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-[#b87d28]" /> Tahun
+            </label>
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            >
+              {YEAR_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter Bulan */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-[#b87d28]" /> Bulan
+            </label>
+            <select
+              value={monthFilter}
+              onChange={(e) => setMonthFilter(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            >
+              {MONTH_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter Tanggal Dari */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase">
+              Dari Tanggal
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full h-8 px-2 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            />
+          </div>
+
+          {/* Filter Tanggal Sampai */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase">
+              Sampai Tanggal
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full h-8 px-2 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            />
+          </div>
+
+          {/* Filter Skema */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase">
+              Skema
+            </label>
+            <select
+              value={schemeFilter}
+              onChange={(e) => setSchemeFilter(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            >
+              {SCHEME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter Status */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-600 uppercase">
+              Status Alur
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full h-8 px-2.5 rounded-xl border border-[#ebd7ba] bg-[#fcfaf6] text-xs font-bold text-slate-800 shadow-sm focus:outline-none focus:ring-1 focus:ring-[#e5a952]"
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* KPI Metric Summary Cards */}
@@ -299,7 +416,9 @@ export default function AdminReportingPage() {
               <h3 className="text-xs font-bold text-slate-900">
                 Tren Pengajuan Permohonan & Sertifikat Terbit
               </h3>
-              <p className="text-[10px] text-slate-500">Rekapitulasi 6 bulan terakhir</p>
+              <p className="text-[10px] text-slate-500">
+                {yearFilter !== "ALL" ? `Rekapitulasi Tahun ${yearFilter}` : "Rekapitulasi 6 bulan terakhir"}
+              </p>
             </div>
             <div className="flex items-center gap-3 text-[10px]">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#073b2d]" /> Pengajuan</span>
@@ -335,7 +454,7 @@ export default function AdminReportingPage() {
               <h3 className="text-xs font-bold text-slate-900">
                 Distribusi Status Alur Permohonan
               </h3>
-              <p className="text-[10px] text-slate-500">Komposisi tahapan berkas saat ini</p>
+              <p className="text-[10px] text-slate-500">Komposisi tahapan berkas sesuai filter</p>
             </div>
           </div>
 
@@ -434,7 +553,7 @@ export default function AdminReportingPage() {
               Laporan Rincian Berkas Permohonan Sertifikasi
             </h3>
             <span className="text-[10px] text-slate-500 font-semibold">
-              Menampilkan {data?.recentApplications?.length ?? 0} data terbaru
+              Menampilkan {data?.recentApplications?.length ?? 0} data sesuai filter
             </span>
           </div>
 
@@ -451,33 +570,41 @@ export default function AdminReportingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data?.recentApplications?.map((app: any, idx: number) => (
-                  <tr key={app.id} className={idx % 2 === 1 ? "bg-[#fbf9f3]" : "bg-white"}>
-                    <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">{idx + 1}</td>
-                    <td className="py-2 px-3">
-                      <span className="font-mono text-[11px] font-bold text-slate-900 bg-[#fbf5eb] px-2 py-0.5 rounded border border-[#ebd7ba]">
-                        {app.applicationNumber}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <p className="font-bold text-slate-900">{app.business?.name}</p>
-                      <p className="text-[10px] text-slate-500">NIB: <span className="font-mono text-[#b87d28] font-bold">{app.business?.nib}</span></p>
-                    </td>
-                    <td className="py-2 px-3">
-                      <Badge variant={app.schemeType === "SELF_DECLARE" ? "accent" : "outline"} className="text-[9px] font-bold">
-                        {app.schemeType === "SELF_DECLARE" ? "Self-Declare" : "Reguler"}
-                      </Badge>
-                    </td>
-                    <td className="py-2 px-3">
-                      <Badge variant={app.status === "CERTIFICATE_ISSUED" ? "success" : app.status === "NEED_CORRECTION" ? "warning" : "secondary"} className="text-[9px] font-bold">
-                        {app.status.replace("_", " ")}
-                      </Badge>
-                    </td>
-                    <td className="py-2 px-3 text-right text-slate-600 font-medium text-[11px]">
-                      {app.createdAt ? formatDate(app.createdAt) : "-"}
+                {data?.recentApplications?.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
+                      Tidak ada data permohonan pada filter tanggal/periode yang dipilih.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  data?.recentApplications?.map((app: any, idx: number) => (
+                    <tr key={app.id} className={idx % 2 === 1 ? "bg-[#fbf9f3]" : "bg-white"}>
+                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">{idx + 1}</td>
+                      <td className="py-2 px-3">
+                        <span className="font-mono text-[11px] font-bold text-slate-900 bg-[#fbf5eb] px-2 py-0.5 rounded border border-[#ebd7ba]">
+                          {app.applicationNumber}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <p className="font-bold text-slate-900">{app.business?.name}</p>
+                        <p className="text-[10px] text-slate-500">NIB: <span className="font-mono text-[#b87d28] font-bold">{app.business?.nib}</span></p>
+                      </td>
+                      <td className="py-2 px-3">
+                        <Badge variant={app.schemeType === "SELF_DECLARE" ? "accent" : "outline"} className="text-[9px] font-bold">
+                          {app.schemeType === "SELF_DECLARE" ? "Self-Declare" : "Reguler"}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-3">
+                        <Badge variant={app.status === "CERTIFICATE_ISSUED" ? "success" : app.status === "NEED_CORRECTION" ? "warning" : "secondary"} className="text-[9px] font-bold">
+                          {app.status.replace("_", " ")}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-600 font-medium text-[11px]">
+                        {app.createdAt ? formatDate(app.createdAt) : "-"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -509,31 +636,39 @@ export default function AdminReportingPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {data?.recentCertificates?.map((cert: any, idx: number) => (
-                  <tr key={cert.id} className={idx % 2 === 1 ? "bg-[#fbf9f3]" : "bg-white"}>
-                    <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">{idx + 1}</td>
-                    <td className="py-2 px-3">
-                      <span className="font-mono text-[11px] font-bold text-emerald-950 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        {cert.certificateNumber}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <p className="font-bold text-slate-900">{cert.businessName}</p>
-                      <p className="text-[10px] text-slate-500">Merek: <strong className="text-slate-800">{cert.brandName}</strong></p>
-                    </td>
-                    <td className="py-2 px-3 font-mono text-[11px] text-slate-700">
-                      {cert.decisionNumber}
-                    </td>
-                    <td className="py-2 px-3">
-                      <Badge variant="success" className="text-[9px] font-bold">
-                        ✓ {cert.status}
-                      </Badge>
-                    </td>
-                    <td className="py-2 px-3 text-right text-slate-600 font-medium text-[11px]">
-                      {cert.issueDate ? formatDate(cert.issueDate) : "-"}
+                {data?.recentCertificates?.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500 text-xs">
+                      Tidak ada sertifikat halal terbit pada periode yang dipilih.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  data?.recentCertificates?.map((cert: any, idx: number) => (
+                    <tr key={cert.id} className={idx % 2 === 1 ? "bg-[#fbf9f3]" : "bg-white"}>
+                      <td className="py-2 px-3 text-center font-mono font-bold text-slate-500">{idx + 1}</td>
+                      <td className="py-2 px-3">
+                        <span className="font-mono text-[11px] font-bold text-emerald-950 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {cert.certificateNumber}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <p className="font-bold text-slate-900">{cert.businessName}</p>
+                        <p className="text-[10px] text-slate-500">Merek: <strong className="text-slate-800">{cert.brandName}</strong></p>
+                      </td>
+                      <td className="py-2 px-3 font-mono text-[11px] text-slate-700">
+                        {cert.decisionNumber}
+                      </td>
+                      <td className="py-2 px-3">
+                        <Badge variant="success" className="text-[9px] font-bold">
+                          ✓ {cert.status}
+                        </Badge>
+                      </td>
+                      <td className="py-2 px-3 text-right text-slate-600 font-medium text-[11px]">
+                        {cert.issueDate ? formatDate(cert.issueDate) : "-"}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
