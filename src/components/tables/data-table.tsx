@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -28,6 +28,7 @@ interface DataTableProps<T> {
   onSearch?: (query: string) => void;
   actionButton?: React.ReactNode;
   customFilter?: React.ReactNode;
+  showRowNumbers?: boolean;
   page?: number;
   totalPages?: number;
   pageSize?: number;
@@ -45,6 +46,7 @@ export function DataTable<T extends { id: string | number }>({
   onSearch,
   actionButton,
   customFilter,
+  showRowNumbers = true,
   page = 1,
   totalPages = 1,
   pageSize = 10,
@@ -65,6 +67,29 @@ export function DataTable<T extends { id: string | number }>({
     setSearchValue("");
     if (onSearch) onSearch("");
   };
+
+  // Automatically prepend sequential "No." column if not already defined in columns
+  const finalColumns: ColumnDef<T>[] = useMemo(() => {
+    const hasNoCol = columns.some(
+      (c) =>
+        c.header.trim().toLowerCase() === "no." ||
+        c.header.trim().toLowerCase() === "no" ||
+        c.header.trim().toLowerCase() === "no urut"
+    );
+    if (hasNoCol || !showRowNumbers) return columns;
+
+    const noColumn: ColumnDef<T> = {
+      header: "No.",
+      className: "w-12 text-center",
+      cell: (_, rowIndex) => (
+        <span className="font-mono text-slate-500 font-bold text-[11px] block text-center">
+          {(page - 1) * pageSize + rowIndex + 1}
+        </span>
+      ),
+    };
+
+    return [noColumn, ...columns];
+  }, [columns, showRowNumbers, page, pageSize]);
 
   const startItem = totalItems && totalItems > 0 ? (page - 1) * pageSize + 1 : 0;
   const endItem = totalItems ? Math.min(page * pageSize, totalItems) : data.length;
@@ -112,7 +137,7 @@ export function DataTable<T extends { id: string | number }>({
         <Table>
           <TableHeader className="bg-[#f7f2e8] border-b border-[#ebd7ba]">
             <TableRow className="border-b border-[#ebd7ba]">
-              {columns.map((col, idx) => (
+              {finalColumns.map((col, idx) => (
                 <TableHead
                   key={idx}
                   className={`text-[11px] font-extrabold text-slate-900 uppercase tracking-wider py-2.5 px-3 ${col.className || ""}`}
@@ -126,7 +151,7 @@ export function DataTable<T extends { id: string | number }>({
             {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={finalColumns.length}
                   className="h-28 text-center text-slate-500 bg-white"
                 >
                   <div className="flex flex-col items-center justify-center space-y-1.5">
@@ -138,7 +163,7 @@ export function DataTable<T extends { id: string | number }>({
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={finalColumns.length}
                   className="h-32 text-center text-slate-500 bg-white"
                 >
                   <div className="flex flex-col items-center justify-center space-y-1">
@@ -164,7 +189,7 @@ export function DataTable<T extends { id: string | number }>({
                     "hover:bg-[#f6eee0]"
                   )}
                 >
-                  {columns.map((col, idx) => (
+                  {finalColumns.map((col, idx) => (
                     <TableCell key={idx} className={`py-2 px-3 ${col.className || ""}`}>
                       {col.cell
                         ? col.cell(item, rowIndex)
@@ -198,41 +223,42 @@ export function DataTable<T extends { id: string | number }>({
                   </option>
                 ))}
               </select>
-              <span className="text-[11px] font-medium text-slate-600">per halaman</span>
             </div>
           )}
 
-          {typeof totalItems === "number" && (
-            <span className="text-[11px] text-slate-500 font-normal hidden md:inline border-l border-[#ebd7ba] pl-2.5">
-              Menampilkan <strong>{startItem}</strong> - <strong>{endItem}</strong> dari <strong>{totalItems}</strong> data
-            </span>
-          )}
+          <span className="text-[11px] text-slate-600 font-medium">
+            Menampilkan <strong className="text-slate-900">{startItem}</strong> -{" "}
+            <strong className="text-slate-900">{endItem}</strong> dari{" "}
+            <strong className="text-slate-900">{totalItems ?? data.length}</strong> data
+          </span>
         </div>
 
-        {/* Right: Page Navigation Buttons */}
-        <div className="flex items-center space-x-1.5">
-          <span className="text-xs font-semibold text-slate-700 mr-1">
-            Hal <strong className="text-slate-900">{page}</strong> dari <strong className="text-slate-900">{totalPages}</strong>
-          </span>
+        {/* Right: Pagination Navigation Buttons */}
+        <div className="flex items-center gap-1.5">
           <Button
-            variant="outline"
             size="sm"
+            variant="outline"
+            disabled={page <= 1}
             onClick={() => onPageChange && onPageChange(page - 1)}
-            disabled={page <= 1 || isLoading}
-            className="h-7 px-2.5 rounded-lg border-[#ebd7ba] bg-white hover:bg-[#fbf5eb] text-xs font-bold shadow-sm"
+            className="h-7 px-2 text-xs rounded-xl border-[#ebd7ba] bg-white hover:bg-[#fbf5eb] disabled:opacity-40"
           >
-            <ChevronLeft className="h-3 w-3 mr-1" />
+            <ChevronLeft className="h-3.5 w-3.5 mr-0.5" />
             Sebelumnya
           </Button>
+
+          <span className="px-2 py-0.5 font-bold text-[11px] text-[#073b2d] bg-[#fbf5eb] border border-[#ebd7ba] rounded-lg">
+            Halaman {page} / {Math.max(totalPages, 1)}
+          </span>
+
           <Button
-            variant="outline"
             size="sm"
+            variant="outline"
+            disabled={page >= totalPages}
             onClick={() => onPageChange && onPageChange(page + 1)}
-            disabled={page >= totalPages || isLoading}
-            className="h-7 px-2.5 rounded-lg border-[#ebd7ba] bg-white hover:bg-[#fbf5eb] text-xs font-bold shadow-sm"
+            className="h-7 px-2 text-xs rounded-xl border-[#ebd7ba] bg-white hover:bg-[#fbf5eb] disabled:opacity-40"
           >
             Selanjutnya
-            <ChevronRight className="h-3 w-3 ml-1" />
+            <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
           </Button>
         </div>
       </div>
