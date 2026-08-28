@@ -103,3 +103,95 @@ export function printCertificateElement(elementId = "printable-certificate") {
     }
   }, 350);
 }
+
+export function printReportElement(elementId = "printable-report-area") {
+  const element = document.getElementById(elementId);
+  if (!element) {
+    window.print();
+    return;
+  }
+
+  // Create or reuse hidden print iframe
+  let iframe = document.getElementById("report-print-frame") as HTMLIFrameElement;
+  if (!iframe) {
+    iframe = document.createElement("iframe");
+    iframe.id = "report-print-frame";
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+    document.body.appendChild(iframe);
+  }
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    window.print();
+    return;
+  }
+
+  let stylesHtml = "";
+  document.querySelectorAll("style, link[rel='stylesheet']").forEach((node) => {
+    stylesHtml += node.outerHTML;
+  });
+
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
+    <html lang="id">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Laporan Rekapitulasi Sertifikasi Halal</title>
+        ${stylesHtml}
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 12mm 10mm;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            box-sizing: border-box !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            font-family: inherit !important;
+          }
+          .print\\:hidden, button, select, input {
+            display: none !important;
+          }
+          table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+          th, td {
+            border: 1px solid #cbd5e1 !important;
+            padding: 6px 8px !important;
+          }
+        </style>
+      </head>
+      <body>
+        <div style="padding: 10px;">
+          ${element.outerHTML}
+        </div>
+      </body>
+    </html>
+  `);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+    } catch (e) {
+      console.error("Print frame error:", e);
+      window.print();
+    }
+  }, 400);
+}

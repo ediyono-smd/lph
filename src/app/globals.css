@@ -79,68 +79,55 @@
   }
 }
 
-/* Dedicated Exact A4 In-Page Print Rules */
+/* Universal Clean Print Rules */
 @media print {
   @page {
     size: A4 portrait;
-    margin: 0;
+    margin: 10mm 10mm;
   }
 
   html,
   body {
-    width: 210mm !important;
-    height: 297mm !important;
+    width: 100% !important;
+    height: auto !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     color: #0f172a !important;
-    overflow: hidden !important;
     print-color-adjust: exact !important;
     -webkit-print-color-adjust: exact !important;
   }
 
-  /* Hide everything outside the active printable certificate */
+  /* Hide navigation, sidebars, buttons, and dialog overlays during print */
   aside,
   header,
   nav,
-  main,
   button,
   .print\:hidden,
-  [data-radix-portal] > div[data-state]:not([role="dialog"]),
   [data-radix-dialog-overlay] {
     display: none !important;
   }
 
-  /* Reset Radix Dialog Modal into an exact A4 page canvas */
-  div[role="dialog"] {
-    position: fixed !important;
-    left: 0 !important;
-    top: 0 !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    max-width: 210mm !important;
-    max-height: 297mm !important;
-    transform: none !important;
-    padding: 0 !important;
+  /* Ensure main content is visible and fills printable width */
+  main {
+    width: 100% !important;
     margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: #ffffff !important;
-    overflow: hidden !important;
-    z-index: 999999 !important;
+    padding: 0 !important;
+    display: block !important;
   }
 
-  /* Exact A4 Printable Certificate Document */
+  /* Certificate specific styling */
   #printable-certificate {
-    display: block !important;
-    position: relative !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    max-width: 210mm !important;
-    max-height: 297mm !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    width: 190mm !important;
+    height: 275mm !important;
+    min-height: 275mm !important;
+    max-height: 275mm !important;
     box-sizing: border-box !important;
-    margin: 0 !important;
-    padding: 10mm 12mm !important;
+    margin: 0 auto !important;
+    padding: 8mm 10mm !important;
     border: 8px solid #073b2d !important;
     border-radius: 0 !important;
     box-shadow: none !important;

@@ -32,6 +32,8 @@ import {
   Cell,
 } from "recharts";
 import { formatDate } from "@/lib/utils";
+import { HalalLogo } from "@/components/brand/halal-logo";
+import { printReportElement } from "@/lib/print";
 
 const SCHEME_OPTIONS = [
   { value: "ALL", label: "Semua Skema" },
@@ -155,9 +157,29 @@ export default function AdminReportingPage() {
     statusFilter !== "ALL";
 
   return (
-    <div className="space-y-4">
+    <div id="printable-report-area" className="space-y-4">
+      {/* Official Print Header (Visible only when printed) */}
+      <div className="hidden print:block border-b-2 border-[#073b2d] pb-3 mb-4 text-center space-y-1">
+        <div className="flex justify-center mb-1">
+          <HalalLogo size={55} />
+        </div>
+        <h2 className="text-xs uppercase font-extrabold tracking-widest text-[#073b2d]">
+          REPUBLIK INDONESIA • BADAN PENYELENGGARA JAMINAN PRODUK HALAL
+        </h2>
+        <h1 className="text-base font-extrabold text-slate-900">
+          LAPORAN REKAPITULASI & STATISTIK SERTIFIKASI HALAL
+        </h1>
+        <p className="text-[10px] text-slate-600">
+          Periode: {yearFilter !== "ALL" ? `Tahun ${yearFilter}` : "Semua Tahun"}
+          {monthFilter !== "ALL" ? ` • Bulan ${MONTH_OPTIONS.find(m => m.value === monthFilter)?.label}` : ""}
+          {startDate ? ` • Dari ${startDate}` : ""}
+          {endDate ? ` • Sampai ${endDate}` : ""}
+          {" "}• Dicetak pada: {new Date().toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}
+        </p>
+      </div>
+
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[#ebd7ba]/90 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[#ebd7ba]/90 shadow-sm print:hidden">
         <div className="flex items-center gap-2.5">
           <div className="h-9 w-9 rounded-xl bg-[#073b2d] flex items-center justify-center text-[#e5a952] font-bold shadow-sm shrink-0">
             <BarChart3 className="h-5 w-5" />
@@ -178,7 +200,7 @@ export default function AdminReportingPage() {
         </div>
 
         {/* Global Report Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 print:hidden">
           <Button
             size="sm"
             variant="outline"
@@ -192,7 +214,7 @@ export default function AdminReportingPage() {
 
           <Button
             size="sm"
-            onClick={() => window.print()}
+            onClick={() => printReportElement("printable-report-area")}
             disabled={isLoading || !data}
             className="h-8 px-3.5 rounded-xl bg-[#073b2d] hover:bg-[#05291f] text-white font-bold text-xs shadow-sm"
           >
@@ -407,8 +429,8 @@ export default function AdminReportingPage() {
         </Card>
       </div>
 
-      {/* Visual Analytics Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+      {/* Visual Analytics Charts (Hidden in print to keep report tabular & clean) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 print:hidden">
         {/* Trend Bar Chart (8 Cols) */}
         <Card className="lg:col-span-7 rounded-2xl border-[#ebd7ba]/90 bg-white shadow-sm p-3.5">
           <div className="flex items-center justify-between pb-2 border-b border-[#ebd7ba]/60 mb-2">
