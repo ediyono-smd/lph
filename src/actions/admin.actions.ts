@@ -256,3 +256,234 @@ export async function getUsersListAction(params?: {
     return { success: false as const, error: error.message };
   }
 }
+
+export async function updateUserByAdminAction(params: {
+  userId: string;
+  fullName: string;
+  phoneNumber?: string;
+  isActive: boolean;
+  roleName?: string;
+  newPassword?: string;
+  businessName?: string;
+  nib?: string;
+  lphName?: string;
+  auditorRegNumber?: string;
+  institutionName?: string;
+  mentorRegNumber?: string;
+}) {
+  try {
+    const session = await assertAdmin();
+
+    const existingUser = await db.query.users.findFirst({
+      where: eq(users.id, params.userId),
+    });
+    if (!existingUser) {
+      throw new Error("Pengguna tidak ditemukan.");
+    }
+
+    // Update user base fields
+    const updateData: any = {
+      fullName: params.fullName,
+      phoneNumber: params.phoneNumber || null,
+      isActive: params.isActive,
+      updatedAt: new Date(),
+    };
+
+    if (params.newPassword && params.newPassword.trim().length >= 6) {
+      const { hashPassword } = await import("@/lib/auth/password");
+      updateData.passwordHash = await hashPassword(params.newPassword.trim());
+    }
+
+    await db.update(users).set(updateData).where(eq(users.id, params.userId));
+
+    // Update Role if provided
+    if (params.roleName) {
+      const targetRole = await db.query.roles.findFirst({
+        where: eq(roles.name, params.roleName as any),
+      });
+      if (targetRole) {
+        await db.delete(userRoles).where(eq(userRoles.userId, params.userId));
+        await db.insert(userRoles).values({
+          userId: params.userId,
+          roleId: targetRole.id,
+        });
+      }
+    }
+
+    // Update related business info if exists
+    if (params.businessName || params.nib) {
+      const biz = await db.query.businesses.findFirst({
+        where: eq(businesses.userId, params.userId),
+      });
+      if (biz) {
+        await db.update(businesses).set({
+          name: params.businessName || biz.name,
+          nib: params.nib || biz.nib,
+          updatedAt: new Date(),
+        }).where(eq(businesses.id, biz.id));
+      }
+    }
+
+    // Update related auditor info if exists
+    if (params.lphName || params.auditorRegNumber) {
+      const aud = await db.query.auditors.findFirst({
+        where: eq(auditors.userId, params.userId),
+      });
+      if (aud) {
+        await db.update(auditors).set({
+          lphName: params.lphName || aud.lphName,
+          auditorRegNumber: params.auditorRegNumber || aud.auditorRegNumber,
+          updatedAt: new Date(),
+        }).where(eq(auditors.id, aud.id));
+      }
+    }
+
+    // Update related mentor info if exists
+    if (params.institutionName || params.mentorRegNumber) {
+      const mnt = await db.query.mentors.findFirst({
+        where: eq(mentors.userId, params.userId),
+      });
+      if (mnt) {
+        await db.update(mentors).set({
+          institutionName: params.institutionName || mnt.institutionName,
+          registrationNumber: params.mentorRegNumber || mnt.registrationNumber,
+          updatedAt: new Date(),
+        }).where(eq(mentors.id, mnt.id));
+      }
+    }
+
+    // Audit log
+    await db.insert(auditLogs).values({
+      userId: session.userId,
+      action: "USER_UPDATED",
+      entityType: "user",
+      entityId: params.userId,
+      oldValues: { fullName: existingUser.fullName, isActive: existingUser.isActive },
+      newValues: { fullName: params.fullName, isActive: params.isActive, role: params.roleName },
+    });
+
+    return { success: true as const, message: "Data pengguna berhasil diperbarui." };
+  } catch (error: any) {
+    return { success: false as const, error: error.message || "Gagal memperbarui data pengguna." };
+  }
+}
+
+export async function createUserByAdminAction(params: {
+  fullName: string;
+  email: string;
+  password: string;
+  phoneNumber?: string;
+  roleName: string;
+  lphName?: string;
+  auditorRegNumber?: string;
+  institutionName?: string;
+  mentorRegNumber?: string;
+  businessName?: string;
+  nib?: string;
+}) {
+  try {
+    const session = await assertAdmin();
+
+    const cleanEmail = params.email.trim().toLowerCase();
+    if (!cleanEmail || !params.fullName || !params.password) {
+      throw new Error("Nama lengkap, email, dan password wajib diisi.");
+    }
+    if (params.password.length < 6) {
+      throw new Error("Password minimal 6 karakter.");
+    }
+
+    // Check existing email
+    const existing = await db.query.users.findFirst({
+      where: eq(users.email, cleanEmail),
+    });
+    if (existing) {
+      throw new Error(`Email ${cleanEmail} sudah terdaftar di sistem.`);
+    }
+
+    const { hashPassword } = await import("@/lib/auth/password");
+    const passwordHash = await hashPassword(params.password);
+
+    // 1. Insert User
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        fullName: params.fullName.trim(),
+        email: cleanEmail,
+        passwordHash,
+        phoneNumber: params.phoneNumber?.trim() || null,
+        isActive: true,
+      })
+      .returning();
+
+    // 2. Assign Role
+    const targetRole = await db.query.roles.findFirst({
+      where: eq(roles.name, params.roleName as any),
+    });
+
+    if (targetRole) {
+      await db.insert(userRoles).values({
+        userId: newUser.id,
+        roleId: targetRole.id,
+      });
+    }
+
+    // 3. Create Role-Specific Profiles
+    if (params.roleName === "AUDITOR") {
+      const regNo =
+        params.auditorRegNumber?.trim() ||
+        `AUD-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      await db.insert(auditors).values({
+        userId: newUser.id,
+        lphName: params.lphName?.trim() || "LPH Utama Indonesia",
+        auditorRegNumber: regNo,
+        competencyField: "Pangan, Minuman & Bahan Olahan",
+        isActive: true,
+      });
+    } else if (params.roleName === "MENTOR") {
+      const regNo =
+        params.mentorRegNumber?.trim() ||
+        `PPH-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      await db.insert(mentors).values({
+        userId: newUser.id,
+        institutionName: params.institutionName?.trim() || "LP3H Binaan Nasional",
+        registrationNumber: regNo,
+        isActive: true,
+      });
+    } else if (params.roleName === "BUSINESS_OWNER") {
+      const randomNib = Math.floor(1000000000000 + Math.random() * 9000000000000).toString();
+      const bName = params.businessName?.trim() || params.fullName;
+      await db.insert(businesses).values({
+        userId: newUser.id,
+        name: bName,
+        brandName: bName,
+        businessType: "PERSEORANGAN",
+        businessScale: "MIKRO",
+        nib: params.nib?.trim() || randomNib,
+        email: cleanEmail,
+        phoneNumber: params.phoneNumber?.trim() || "081234567890",
+        isActive: true,
+      });
+    }
+
+    // 4. Audit Log
+    await db.insert(auditLogs).values({
+      userId: session.userId,
+      action: "USER_CREATED",
+      entityType: "user",
+      entityId: newUser.id,
+      newValues: {
+        fullName: params.fullName,
+        email: cleanEmail,
+        role: params.roleName,
+      },
+    });
+
+    return {
+      success: true as const,
+      message: `Akun ${params.fullName} (${params.roleName}) berhasil dibuat.`,
+      data: newUser,
+    };
+  } catch (error: any) {
+    return { success: false as const, error: error.message || "Gagal membuat akun pengguna." };
+  }
+}
